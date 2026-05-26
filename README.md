@@ -1,0 +1,15 @@
+# pi-ui-tweaks
+
+Personal Pi UI tweaks.
+
+## Install
+
+```sh
+pi install git:github.com/Michaelliv/pi-ui-tweaks
+```
+
+## Extensions
+
+- `footer`: custom bottom bar/footer for interactive Pi sessions.
+- `assistant-rendering`: hides assistant markdown fence lines while keeping Pi's code block rendering and syntax highlighting.
+- `loader-time`: adds elapsed time to Pi loader messages while keeping the default spinner rendering.
