@@ -8,18 +8,6 @@ type PatchState = typeof globalThis & {
     [LOADER_TIME_PATCH_KEY]?: boolean;
 };
 
-type PatchedLoader = Loader & {
-    ui?: { requestRender(): void } | null;
-    intervalId?: ReturnType<typeof setInterval> | null;
-    setText(text: string): void;
-    message: string;
-    messageColorFn(text: string): string;
-    spinnerColorFn(text: string): string;
-    frames: string[];
-    currentFrame: number;
-    renderIndicatorVerbatim: boolean;
-};
-
 function getPatchState(): PatchState {
     return globalThis as PatchState;
 }
@@ -40,10 +28,22 @@ function formatElapsed(seconds: number): string {
     return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
 }
 
-function updateDisplay(loader: PatchedLoader): void {
-    const frame = loader.frames[loader.currentFrame] ?? "";
-    let renderedFrame = loader.spinnerColorFn(frame);
-    if (loader.renderIndicatorVerbatim === true) {
+type LoaderInternals = {
+    frames: string[];
+    currentFrame: number;
+    renderIndicatorVerbatim: boolean;
+    spinnerColorFn(text: string): string;
+    message: string;
+    messageColorFn(text: string): string;
+    setText(text: string): void;
+    ui: { requestRender(): void } | null;
+};
+
+function updateDisplay(loader: Loader): void {
+    const l = loader as unknown as LoaderInternals;
+    const frame = l.frames[l.currentFrame] ?? "";
+    let renderedFrame = l.spinnerColorFn(frame);
+    if (l.renderIndicatorVerbatim === true) {
         renderedFrame = frame;
     }
 
@@ -58,9 +58,9 @@ function updateDisplay(loader: PatchedLoader): void {
         loaderStartTimes.set(loader, startedAt);
     }
     const elapsedSeconds = Math.floor(Math.max(0, Date.now() - startedAt) / 1000);
-    const message = `${loader.message} (${formatElapsed(elapsedSeconds)})`;
-    loader.setText(`${indicator}${loader.messageColorFn(message)}`);
-    loader.ui?.requestRender();
+    const message = `${l.message} (${formatElapsed(elapsedSeconds)})`;
+    l.setText(`${indicator}${l.messageColorFn(message)}`);
+    l.ui?.requestRender();
 }
 
 function patchLoaderTime(): void {
@@ -70,25 +70,25 @@ function patchLoaderTime(): void {
     }
     state[LOADER_TIME_PATCH_KEY] = true;
 
-    const prototype = Loader.prototype as PatchedLoader & {
+    const prototype = Loader.prototype as unknown as {
         start(): void;
         stop(): void;
         updateDisplay(): void;
     };
-    const originalStart = Reflect.get(prototype, "start") as (this: PatchedLoader) => void;
-    const originalStop = Reflect.get(prototype, "stop") as (this: PatchedLoader) => void;
+    const originalStart = Reflect.get(prototype, "start") as (this: Loader) => void;
+    const originalStop = Reflect.get(prototype, "stop") as (this: Loader) => void;
 
-    prototype.start = function patchedStart(this: PatchedLoader): void {
+    prototype.start = function patchedStart(this: Loader): void {
         loaderStartTimes.set(this, Date.now());
         originalStart.call(this);
     };
 
-    prototype.stop = function patchedStop(this: PatchedLoader): void {
+    prototype.stop = function patchedStop(this: Loader): void {
         loaderStartTimes.delete(this);
         originalStop.call(this);
     };
 
-    prototype.updateDisplay = function patchedUpdateDisplay(this: PatchedLoader): void {
+    prototype.updateDisplay = function patchedUpdateDisplay(this: Loader): void {
         updateDisplay(this);
     };
 }
