@@ -1,9 +1,3 @@
-export const MARKDOWN_PATCH_KEY = Symbol.for("zigai.pi.assistant-message-no-fences-patched");
-export const LOADER_PATCH_KEY = Symbol.for("zigai.pi.loader-style-patched");
-export const PAUSE_API_KEY = Symbol.for("zigai.pi.loader-style-pause-api");
-
-export const DOTS_INTERVAL_MS = 700;
-export const TIME_INTERVAL_MS = 200;
 export const WIDGET_KEY = "worked-for-widget";
 
 export const ACTIVE_FOOTER_VARIANT = "plain" as const;
