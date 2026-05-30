@@ -4,7 +4,7 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { WIDGET_KEY } from "./constants.ts";
 
 export function formatDuration(ms: number): string {
-    const wholeSeconds = Math.max(1, Math.round(ms / 1000));
+    const wholeSeconds = Math.max(0, Math.round(ms / 1000));
     if (wholeSeconds < 60) return `${wholeSeconds}s`;
 
     const minutes = Math.floor(wholeSeconds / 60);
