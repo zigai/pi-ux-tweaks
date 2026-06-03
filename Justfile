@@ -7,6 +7,12 @@ lint:
 test:
     npm test --if-present
 
+release:
+    npm run release
+
+release-dry-run:
+    npm run release:dry-run
+
 fix:
     npm run lint:fix
     npm run format
