@@ -4,10 +4,18 @@
   "private": true,
   "description": "Monorepo for personal Pi UI tweaks.",
   "keywords": [
+    "pi",
+    "pi-coding-agent",
     "pi-extension",
     "pi-package",
     "pi-ui"
   ],
+  "homepage": "https://github.com/zigai/pi-ui-tweaks#readme",
+  "bugs": {
+    "url": "https://github.com/zigai/pi-ui-tweaks/issues"
+  },
+  "license": "MIT",
+  "author": "zigai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zigai/pi-ui-tweaks.git"

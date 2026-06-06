@@ -4,9 +4,17 @@
   "description": "Pi extension for configuring model aliases.",
   "keywords": [
     "model-alias",
+    "pi",
+    "pi-coding-agent",
     "pi-extension",
     "pi-package"
   ],
+  "homepage": "https://github.com/zigai/pi-ui-tweaks/tree/main/packages/pi-model-alias#readme",
+  "bugs": {
+    "url": "https://github.com/zigai/pi-ui-tweaks/issues"
+  },
+  "license": "MIT",
+  "author": "zigai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zigai/pi-ui-tweaks.git",

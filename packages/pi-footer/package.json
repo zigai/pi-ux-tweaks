@@ -4,10 +4,18 @@
   "description": "Pi package for a custom footer and worked-for token speed widget.",
   "keywords": [
     "footer",
+    "pi",
+    "pi-coding-agent",
     "pi-extension",
     "pi-package",
     "pi-ui"
   ],
+  "homepage": "https://github.com/zigai/pi-ui-tweaks/tree/main/packages/pi-footer#readme",
+  "bugs": {
+    "url": "https://github.com/zigai/pi-ui-tweaks/issues"
+  },
+  "license": "MIT",
+  "author": "zigai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zigai/pi-ui-tweaks.git",
