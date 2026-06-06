@@ -1,8 +1,6 @@
 # Pi UI Tweaks
 
-A collection of small Pi extensions that make the terminal UI easier to read and a little more personal.
-
-Each package can be installed on its own. Open a package README for full details.
+A collection of small Pi extensions for improving the UI.
 
 ## Extensions
 
