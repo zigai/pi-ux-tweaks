@@ -1,13 +1,13 @@
-# Pi UX Tweaks
+# Pi Tweaks
 
-A collection of small Pi extensions for improving interaction, display, and model-selection UX.
+A collection of small Pi extensions for improving interaction, display, and model selection.
 
 ## Install
 
 Install the full bundle from the root package:
 
 ```sh
-pi install git:github.com/zigai/pi-ux-tweaks
+pi install git:github.com/zigai/pi-tweaks
 ```
 
 Or install only the individual packages you want from the package table.

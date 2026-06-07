@@ -4,11 +4,10 @@ This Pi extension improves `/tree` with timestamps on every entry, a cleaner hel
 
 The preview helps when scanning a long session because you can inspect message content without opening each branch.
 
-
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-ux-tweaks
+pi install git:github.com/zigai/pi-tweaks
 ```
 
 ## Features

@@ -5,7 +5,7 @@ This Pi extension filters visible models.
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-ux-tweaks
+pi install git:github.com/zigai/pi-tweaks
 ```
 
 Example `~/.pi/agent/model-filters.json`:
