@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "@zigai/pi-*@*"
+  release:
+    types:
+      - published
   workflow_dispatch:
     inputs:
       package:
@@ -43,7 +46,7 @@ jobs:
           if [ -n "$INPUT_PACKAGE" ]; then
             package="$INPUT_PACKAGE"
           else
-            tag="${GITHUB_REF_NAME}"
+            tag="${{ github.event.release.tag_name || github.ref_name }}"
             package="${tag%@*}"
           fi
 
