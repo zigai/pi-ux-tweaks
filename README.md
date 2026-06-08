@@ -26,6 +26,7 @@ Or install only the individual packages you want from the package table.
 | [`@zigai/pi-mode`](packages/pi-mode)                           | Adds prompt modes for model and thinking-level switching with editor border cues.                                | `pi install npm:@zigai/pi-mode`              |
 | [`@zigai/pi-prompt-history`](packages/pi-prompt-history)       | Adds cross-session prompt history to the prompt editor.                                                          | `pi install npm:@zigai/pi-prompt-history`    |
 | [`@zigai/pi-mention-skill`](packages/pi-mention-skill)         | Moves skills from slash autocomplete to `$` mention autocomplete and expands selected skills inline.             | `pi install npm:@zigai/pi-mention-skill`     |
+| [`@zigai/pi-trust`](packages/pi-trust)                         | Automatically approves Pi project trust prompts for project-local inputs.                                        | `pi install npm:@zigai/pi-trust`             |
 
 # License
 
