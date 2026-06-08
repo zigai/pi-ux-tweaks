@@ -25,6 +25,7 @@ Or install only the individual packages you want from the package table.
 | [`@zigai/pi-submit-mode`](packages/pi-submit-mode)             | Makes `Enter` queue a follow-up and `Alt+Enter` steer the current run.                                           | `pi install npm:@zigai/pi-submit-mode`       |
 | [`@zigai/pi-mode`](packages/pi-mode)                           | Adds prompt modes for model and thinking-level switching with editor border cues.                                | `pi install npm:@zigai/pi-mode`              |
 | [`@zigai/pi-prompt-history`](packages/pi-prompt-history)       | Adds cross-session prompt history to the prompt editor.                                                          | `pi install npm:@zigai/pi-prompt-history`    |
+| [`@zigai/pi-mention-skill`](packages/pi-mention-skill)         | Moves skills from slash autocomplete to `$` mention autocomplete and expands selected skills inline.             | `pi install npm:@zigai/pi-mention-skill`     |
 
 # License
 

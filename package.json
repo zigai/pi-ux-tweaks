@@ -61,7 +61,8 @@
       "./packages/pi-loader-time/src/index.ts",
       "./packages/pi-submit-mode/src/index.ts",
       "./packages/pi-mode/src/index.ts",
-      "./packages/pi-prompt-history/src/index.ts"
+      "./packages/pi-prompt-history/src/index.ts",
+      "./packages/pi-mention-skill/src/index.ts"
     ]
   }
 }
