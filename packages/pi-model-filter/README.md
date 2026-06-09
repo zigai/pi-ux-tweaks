@@ -12,7 +12,7 @@ Example `~/.pi/agent/model-filters.json`:
 
 ```json
 {
-  "$schema": "./model-filters.schema.json",
+  "$schema": "https://raw.githubusercontent.com/zigai/pi-tweaks/main/packages/pi-model-filter/model-filters.schema.json",
   "include": [
     {
       "provider": "openai-codex",
