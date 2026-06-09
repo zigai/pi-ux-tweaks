@@ -1,8 +1,9 @@
 {
   "name": "@zigai/pi-submit-mode",
   "version": "0.1.6",
-  "description": "Pi package that customizes busy Enter and Alt+Enter submit behavior.",
+  "description": "Deprecated compatibility package for @zigai/pi-keymap submit behavior.",
   "keywords": [
+    "deprecated",
     "keybindings",
     "pi",
     "pi-coding-agent",
@@ -29,6 +30,9 @@
   "type": "module",
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@zigai/pi-keymap": "^0.1.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

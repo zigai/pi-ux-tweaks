@@ -1,9 +1,15 @@
 # Pi Submit Mode
 
-This Pi extension makes `Enter` queue a follow-up and `Alt+Enter` steer the current run.
+Deprecated compatibility package. Use [`@zigai/pi-keymap`](../pi-keymap) for new installs.
+
+This package still applies the original submit behavior:
+
+- `Enter` queues a follow-up while a run is busy.
+- `Alt+Enter` steers the current run while a run is busy.
+- SSH/TMUX `LF` Enter input is normalized to submit correctly.
 
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-keymap
 ```
