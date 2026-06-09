@@ -1,7 +1,7 @@
 {
-  "name": "@zigai/pi-keymap",
+  "name": "@zigai/pi-keymap-tweaks",
   "version": "0.1.0",
-  "description": "Pi package for opinionated editor and message-submit key behavior.",
+  "description": "Pi package for opinionated editor and message-submit key tweaks.",
   "keywords": [
     "keybindings",
     "keymap",
@@ -11,7 +11,7 @@
     "pi-package",
     "pi-tweaks"
   ],
-  "homepage": "https://github.com/zigai/pi-tweaks/tree/main/packages/pi-keymap#readme",
+  "homepage": "https://github.com/zigai/pi-tweaks/tree/main/packages/pi-keymap-tweaks#readme",
   "bugs": {
     "url": "https://github.com/zigai/pi-tweaks/issues"
   },
@@ -20,7 +20,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zigai/pi-tweaks.git",
-    "directory": "packages/pi-keymap"
+    "directory": "packages/pi-keymap-tweaks"
   },
   "files": [
     "src",

@@ -1,6 +1,6 @@
-# Pi Keymap
+# Pi Keymap Tweaks
 
-This Pi extension collects opinionated editor and message-submit key behavior.
+This Pi extension collects opinionated editor and message-submit key tweaks.
 
 ## Features
 
@@ -27,5 +27,5 @@ This extension provides behavior; key assignments still live in your Pi keybindi
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-keymap-tweaks
 ```

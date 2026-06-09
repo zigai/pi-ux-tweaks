@@ -1,6 +1,6 @@
 # Pi Submit Mode
 
-Deprecated compatibility package. Use [`@zigai/pi-keymap`](../pi-keymap) for new installs.
+Deprecated compatibility package. Use [`@zigai/pi-keymap-tweaks`](../pi-keymap-tweaks) for new installs.
 
 This package still applies the original submit behavior:
 
@@ -11,5 +11,5 @@ This package still applies the original submit behavior:
 ## Install
 
 ```sh
-pi install npm:@zigai/pi-keymap
+pi install npm:@zigai/pi-keymap-tweaks
 ```

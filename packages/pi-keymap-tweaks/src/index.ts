@@ -12,7 +12,7 @@ type EditorFactory = NonNullable<ReturnType<ExtensionContext["ui"]["getEditorCom
 
 const SWAP_MARKER = Symbol.for("pi-ui-tweaks.swap-submit-and-follow-up");
 const TERMINAL_ENTER_MARKER = Symbol.for("pi-ui-tweaks.terminal-lf-enter-submit");
-const KEYMAP_FACTORY_BASE = Symbol.for("zigai.pi-keymap.editor-factory-base");
+const KEYMAP_FACTORY_BASE = Symbol.for("zigai.pi-keymap-tweaks.editor-factory-base");
 
 type PatchableAgentSessionPrototype = AgentSession & {
     [SWAP_MARKER]?: true;
