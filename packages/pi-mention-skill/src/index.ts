@@ -10,12 +10,16 @@ import {
     type AutocompleteSuggestions,
     fuzzyFilter,
 } from "@earendil-works/pi-tui";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import fs from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 
 const MAX_SUGGESTIONS = 20;
+const DEFAULT_MENTION_TRIGGER = "$";
+const TRIGGER_SETTINGS_KEY = "mentionSkillTrigger";
+const HIDE_SLASH_SKILLS_SETTINGS_KEY = "mentionSkillHideSlashSkills";
 const SKILL_COMMAND_PREFIX = "skill:";
-const SKILL_MENTION_PATTERN = /(^|\s)\$([a-z0-9][a-z0-9-]{0,63})(?=$|\s|[.,;:!?)}\]])/g;
 const MENTION_FACTORY_BASE = Symbol.for("zigai.pi-mention-skill.editor-factory-base");
 
 type SkillCommand = SlashCommandInfo & {
@@ -44,6 +48,66 @@ type SkillExpansion = {
     baseDir: string;
 };
 
+type MentionSkillSettings = {
+    trigger: string;
+    hideSlashSkills: boolean;
+};
+
+type SettingsCache = MentionSkillSettings & {
+    mtimeMs: number | undefined;
+};
+
+let settingsCache: SettingsCache | undefined;
+
+function agentSettingsPath(): string {
+    return path.join(
+        process.env.PI_CODING_AGENT_DIR ?? path.join(homedir(), ".pi", "agent"),
+        "settings.json",
+    );
+}
+
+function isValidMentionTrigger(value: unknown): value is string {
+    return typeof value === "string" && value.length === 1 && value !== "/" && !/\s/.test(value);
+}
+
+function configuredMentionSkillSettings(): MentionSkillSettings {
+    const defaults: MentionSkillSettings = {
+        trigger: DEFAULT_MENTION_TRIGGER,
+        hideSlashSkills: true,
+    };
+
+    const settingsPath = agentSettingsPath();
+    if (!existsSync(settingsPath)) {
+        settingsCache = { mtimeMs: undefined, ...defaults };
+        return defaults;
+    }
+
+    const stat = statSync(settingsPath);
+    if (settingsCache !== undefined && settingsCache.mtimeMs === stat.mtimeMs) {
+        return settingsCache;
+    }
+
+    const loaded: SettingsCache = { mtimeMs: stat.mtimeMs, ...defaults };
+    try {
+        const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
+        if (isValidMentionTrigger(settings[TRIGGER_SETTINGS_KEY])) {
+            loaded.trigger = settings[TRIGGER_SETTINGS_KEY];
+        }
+        if (typeof settings[HIDE_SLASH_SKILLS_SETTINGS_KEY] === "boolean") {
+            loaded.hideSlashSkills = settings[HIDE_SLASH_SKILLS_SETTINGS_KEY];
+        }
+    } catch {
+        // Ignore malformed settings and fall back to defaults.
+    }
+
+    settingsCache = loaded;
+    return loaded;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function stripFrontmatter(content: string): string {
     if (!content.startsWith("---")) return content;
 
@@ -70,34 +134,38 @@ function skillName(command: SkillCommand): string {
     return command.name.slice(SKILL_COMMAND_PREFIX.length);
 }
 
-function skillToItem(command: SkillCommand): AutocompleteItem {
+function skillToItem(command: SkillCommand, trigger = DEFAULT_MENTION_TRIGGER): AutocompleteItem {
     const name = skillName(command);
     return {
-        value: `$${name}`,
-        label: `$${name}`,
+        value: `${trigger}${name}`,
+        label: `${trigger}${name}`,
         description: command.description,
     };
 }
 
-function extractSkillToken(textBeforeCursor: string): string | undefined {
-    const match = /(?:^|\s)\$([a-z0-9-]*)$/.exec(textBeforeCursor);
+function extractSkillToken(textBeforeCursor: string, trigger: string): string | undefined {
+    const escapedTrigger = escapeRegExp(trigger);
+    const match = new RegExp(`(?:^|\\s)${escapedTrigger}([a-z0-9-]*)$`).exec(textBeforeCursor);
     return match?.[1];
 }
 
-function filterSkills(skills: SkillCommand[], query: string): AutocompleteItem[] {
+function filterSkills(skills: SkillCommand[], query: string, trigger: string): AutocompleteItem[] {
     if (query.length === 0) {
-        return skills.slice(0, MAX_SUGGESTIONS).map(skillToItem);
+        return skills.slice(0, MAX_SUGGESTIONS).map((skill) => skillToItem(skill, trigger));
     }
 
     return fuzzyFilter(skills, query, (skill) => `${skillName(skill)} ${skill.description}`)
         .slice(0, MAX_SUGGESTIONS)
-        .map(skillToItem);
+        .map((skill) => skillToItem(skill, trigger));
 }
 
 function filterSlashSkillSuggestions(
     suggestions: AutocompleteSuggestions | null,
+    hideSlashSkills: boolean,
 ): AutocompleteSuggestions | null {
-    if (suggestions === null || !suggestions.prefix.startsWith("/")) return suggestions;
+    if (!hideSlashSkills || suggestions === null || !suggestions.prefix.startsWith("/")) {
+        return suggestions;
+    }
 
     const items = suggestions.items.filter((item) => !item.value.startsWith(SKILL_COMMAND_PREFIX));
     if (items.length === suggestions.items.length) return suggestions;
@@ -108,34 +176,50 @@ function filterSlashSkillSuggestions(
 function createSkillMentionProvider(
     pi: ExtensionAPI,
     current: AutocompleteProvider,
+    settings: MentionSkillSettings,
 ): AutocompleteProvider {
-    return {
+    const { trigger, hideSlashSkills } = settings;
+    const getFallbackSuggestions = async (
+        lines: string[],
+        cursorLine: number,
+        cursorCol: number,
+        options: { signal: AbortSignal; force?: boolean },
+    ): Promise<AutocompleteSuggestions | null> => {
+        const suggestions = await current.getSuggestions(lines, cursorLine, cursorCol, options);
+        return filterSlashSkillSuggestions(suggestions, hideSlashSkills);
+    };
+
+    const provider = {
+        triggerCharacters: [trigger],
+
         async getSuggestions(
-            lines,
-            cursorLine,
-            cursorCol,
-            options,
+            lines: string[],
+            cursorLine: number,
+            cursorCol: number,
+            options: { signal: AbortSignal; force?: boolean },
         ): Promise<AutocompleteSuggestions | null> {
             const line = lines[cursorLine] ?? "";
             const beforeCursor = line.slice(0, cursorCol);
-            const token = extractSkillToken(beforeCursor);
+            const token = extractSkillToken(beforeCursor, trigger);
             if (token === undefined) {
-                const suggestions = await current.getSuggestions(
-                    lines,
-                    cursorLine,
-                    cursorCol,
-                    options,
-                );
-                return filterSlashSkillSuggestions(suggestions);
+                return getFallbackSuggestions(lines, cursorLine, cursorCol, options);
             }
 
-            const items = filterSkills(getSkillCommands(pi), token);
-            if (items.length === 0) return null;
-            return { prefix: `$${token}`, items };
+            const items = filterSkills(getSkillCommands(pi), token, trigger);
+            if (items.length === 0) {
+                return getFallbackSuggestions(lines, cursorLine, cursorCol, options);
+            }
+            return { prefix: `${trigger}${token}`, items };
         },
 
-        applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
-            if (!prefix.startsWith("$")) {
+        applyCompletion(
+            lines: string[],
+            cursorLine: number,
+            cursorCol: number,
+            item: AutocompleteItem,
+            prefix: string,
+        ) {
+            if (!prefix.startsWith(trigger)) {
                 return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
             }
 
@@ -156,21 +240,29 @@ function createSkillMentionProvider(
             };
         },
 
-        shouldTriggerFileCompletion(lines, cursorLine, cursorCol) {
+        shouldTriggerFileCompletion(lines: string[], cursorLine: number, cursorCol: number) {
             return current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? true;
         },
     };
+
+    return provider;
 }
 
-function isSkillMentionContext(text: string): boolean {
-    return /(?:^|\s)\$[a-z0-9-]*$/.test(text);
+function isSkillMentionContext(text: string, trigger: string): boolean {
+    return new RegExp(`(?:^|\\s)${escapeRegExp(trigger)}[a-z0-9-]*$`).test(text);
 }
 
-function colorSkillMentions(line: string, pi: ExtensionAPI, ctx: ExtensionContext): string {
+function colorSkillMentions(
+    line: string,
+    pi: ExtensionAPI,
+    ctx: ExtensionContext,
+    trigger: string,
+): string {
     const skillNames = new Set(getSkillCommands(pi).map(skillName));
-    if (skillNames.size === 0 || !line.includes("$")) return line;
+    if (skillNames.size === 0 || !line.includes(trigger)) return line;
 
-    return line.replace(/\$([a-z0-9][a-z0-9-]{0,63})/g, (match: string, name: string) => {
+    const mentionPattern = new RegExp(`${escapeRegExp(trigger)}([a-z0-9][a-z0-9-]{0,63})`, "g");
+    return line.replace(mentionPattern, (match: string, name: string) => {
         if (!skillNames.has(name)) return match;
         return ctx.ui.theme.fg("accent", match);
     });
@@ -193,12 +285,17 @@ function autocompleteStartIndex(renderedLines: string[]): number {
     return renderedLines.length;
 }
 
-function enhanceEditor(editor: EditorLike, pi: ExtensionAPI, ctx: ExtensionContext): EditorLike {
+function enhanceEditor(
+    editor: EditorLike,
+    pi: ExtensionAPI,
+    ctx: ExtensionContext,
+    trigger: string,
+): EditorLike {
     const originalHandleInput = editor.handleInput.bind(editor);
     editor.handleInput = (data: string) => {
         originalHandleInput(data);
 
-        if (!/^[a-z0-9-$]$/i.test(data)) return;
+        if (!/^[a-z0-9-]$/i.test(data) && data !== trigger) return;
 
         const text = editor.getText();
         const lines = text.split("\n");
@@ -207,7 +304,7 @@ function enhanceEditor(editor: EditorLike, pi: ExtensionAPI, ctx: ExtensionConte
         if (lastLine !== undefined) {
             currentLine = lastLine;
         }
-        if (!isSkillMentionContext(currentLine)) return;
+        if (!isSkillMentionContext(currentLine, trigger)) return;
         if (editor.isShowingAutocomplete?.() === true) return;
         editor.tryTriggerAutocomplete?.();
     };
@@ -221,14 +318,14 @@ function enhanceEditor(editor: EditorLike, pi: ExtensionAPI, ctx: ExtensionConte
         }
         return renderedLines.map((line, index) => {
             if (index >= colorThrough) return line;
-            return colorSkillMentions(line, pi, ctx);
+            return colorSkillMentions(line, pi, ctx, trigger);
         });
     };
 
     return editor;
 }
 
-function applyMentionSkillEditor(pi: ExtensionAPI, ctx: ExtensionContext): void {
+function applyMentionSkillEditor(pi: ExtensionAPI, ctx: ExtensionContext, trigger: string): void {
     if (!ctx.hasUI) return;
 
     const existing = ctx.ui.getEditorComponent() as WrappedEditorFactory | undefined;
@@ -236,7 +333,7 @@ function applyMentionSkillEditor(pi: ExtensionAPI, ctx: ExtensionContext): void 
     const factory = ((tui, theme, keybindings) => {
         const editor = (baseFactory?.(tui, theme, keybindings) ??
             new CustomEditor(tui, theme, keybindings)) as unknown as EditorLike;
-        return enhanceEditor(editor, pi, ctx);
+        return enhanceEditor(editor, pi, ctx, trigger);
     }) as WrappedEditorFactory;
     factory[MENTION_FACTORY_BASE] = baseFactory;
 
@@ -270,20 +367,31 @@ function formatCombinedSkillBlock(expansions: SkillExpansion[]): string {
     return `<skill name="${names}" location="multiple">\n${content}\n</skill>`;
 }
 
-function removeSkillMentionSigils(text: string, names: Set<string>): string {
+function skillMentionPattern(trigger: string): RegExp {
+    return new RegExp(
+        `(^|\\s)${escapeRegExp(trigger)}([a-z0-9][a-z0-9-]{0,63})(?=$|\\s|[.,;:!?)}\\]])`,
+        "g",
+    );
+}
+
+function removeSkillMentionSigils(text: string, names: Set<string>, trigger: string): string {
     return text
-        .replace(SKILL_MENTION_PATTERN, (match: string, leading: string, name: string) => {
+        .replace(skillMentionPattern(trigger), (match: string, leading: string, name: string) => {
             if (!names.has(name)) return match;
             return `${leading}${name}`;
         })
         .trim();
 }
 
-async function expandSkillMentions(text: string, skills: SkillCommand[]): Promise<string> {
+async function expandSkillMentions(
+    text: string,
+    skills: SkillCommand[],
+    trigger: string,
+): Promise<string> {
     const byName = new Map(skills.map((skill) => [skillName(skill), skill]));
     const names = new Set<string>();
 
-    for (const match of text.matchAll(SKILL_MENTION_PATTERN)) {
+    for (const match of text.matchAll(skillMentionPattern(trigger))) {
         const name = match[2];
         if (name !== undefined && byName.has(name)) {
             names.add(name);
@@ -305,7 +413,7 @@ async function expandSkillMentions(text: string, skills: SkillCommand[]): Promis
     if (loaded.length === 0) return text;
 
     const skillBlock = formatCombinedSkillBlock(loaded);
-    const userMessage = removeSkillMentionSigils(text, names);
+    const userMessage = removeSkillMentionSigils(text, names, trigger);
     if (userMessage.length === 0) return skillBlock;
     return `${skillBlock}\n\n${userMessage}`;
 }
@@ -313,14 +421,18 @@ async function expandSkillMentions(text: string, skills: SkillCommand[]): Promis
 export default function (pi: ExtensionAPI): void {
     pi.on("session_start", async (_event, ctx) => {
         if (!ctx.hasUI) return;
-        applyMentionSkillEditor(pi, ctx);
-        ctx.ui.addAutocompleteProvider((current) => createSkillMentionProvider(pi, current));
+        const settings = configuredMentionSkillSettings();
+        applyMentionSkillEditor(pi, ctx, settings.trigger);
+        ctx.ui.addAutocompleteProvider((current) =>
+            createSkillMentionProvider(pi, current, settings),
+        );
     });
 
     pi.on("input", async (event) => {
-        if (!event.text.includes("$")) return { action: "continue" };
+        const { trigger } = configuredMentionSkillSettings();
+        if (!event.text.includes(trigger)) return { action: "continue" };
 
-        const expanded = await expandSkillMentions(event.text, getSkillCommands(pi));
+        const expanded = await expandSkillMentions(event.text, getSkillCommands(pi), trigger);
         if (expanded === event.text) return { action: "continue" };
         return { action: "transform", text: expanded, images: event.images };
     });
