@@ -1,4 +1,9 @@
-import { getAgentDir, ModelRegistry, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+    getAgentDir,
+    ModelRegistry,
+    type ExtensionAPI,
+    type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -41,6 +46,7 @@ type LoadedConfig = {
 
 type RuntimeState = {
     configCache?: LoadedConfig;
+    reportedErrorKey?: string;
     loadConfig: () => LoadedConfig;
 };
 
@@ -172,22 +178,24 @@ function filterModels(models: ModelLike[], loaded: LoadedConfig): ModelLike[] {
 }
 
 function safeReadConfig(state: RuntimeState): LoadedConfig {
+    let mtimeMs = -1;
     try {
-        let mtimeMs = -1;
         try {
             mtimeMs = statSync(CONFIG_FILE).mtimeMs;
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-                return {
+                const loaded: LoadedConfig = {
                     path: CONFIG_FILE,
                     mtimeMs: -1,
                     includeRules: [],
                     excludeRules: [],
                 };
+                state.configCache = loaded;
+                return loaded;
             }
             throw error;
         }
-        if (state.configCache?.mtimeMs === mtimeMs && state.configCache.error === undefined) {
+        if (state.configCache?.mtimeMs === mtimeMs) {
             return state.configCache;
         }
 
@@ -210,7 +218,7 @@ function safeReadConfig(state: RuntimeState): LoadedConfig {
         }
         const loaded: LoadedConfig = {
             path: CONFIG_FILE,
-            mtimeMs: -1,
+            mtimeMs,
             includeRules: [],
             excludeRules: [],
             error: `Failed to load ${CONFIG_FILE}: ${message}`,
@@ -218,6 +226,21 @@ function safeReadConfig(state: RuntimeState): LoadedConfig {
         state.configCache = loaded;
         return loaded;
     }
+}
+
+function reportConfigError(state: RuntimeState, ctx: ExtensionContext, loaded: LoadedConfig): void {
+    if (loaded.error === undefined) {
+        state.reportedErrorKey = undefined;
+        return;
+    }
+
+    const errorKey = `${loaded.path}:${loaded.mtimeMs}:${loaded.error}`;
+    if (state.reportedErrorKey === errorKey) {
+        return;
+    }
+
+    state.reportedErrorKey = errorKey;
+    ctx.ui.notify(loaded.error, "error");
 }
 
 function installRegistryPatch(registry: PatchedModelRegistry, state: RuntimeState): void {
@@ -285,5 +308,10 @@ export default function providerModelFilterExtension(pi: ExtensionAPI) {
 
     pi.on("session_start", async (_event, ctx) => {
         installRegistryPatch(ctx.modelRegistry as PatchedModelRegistry, state);
+        reportConfigError(state, ctx, state.loadConfig());
+    });
+
+    pi.on("turn_start", (_event, ctx) => {
+        reportConfigError(state, ctx, state.loadConfig());
     });
 }
