@@ -1,5 +1,6 @@
 import {
     CustomEditor,
+    getAgentDir,
     type ExtensionAPI,
     type ExtensionContext,
     type SlashCommandInfo,
@@ -12,7 +13,6 @@ import {
 } from "@earendil-works/pi-tui";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import fs from "node:fs/promises";
-import { homedir } from "node:os";
 import path from "node:path";
 
 const MAX_SUGGESTIONS = 20;
@@ -60,10 +60,7 @@ type SettingsCache = MentionSkillSettings & {
 let settingsCache: SettingsCache | undefined;
 
 function agentSettingsPath(): string {
-    return path.join(
-        process.env.PI_CODING_AGENT_DIR ?? path.join(homedir(), ".pi", "agent"),
-        "settings.json",
-    );
+    return path.join(getAgentDir(), "settings.json");
 }
 
 function isValidMentionTrigger(value: unknown): value is string {
