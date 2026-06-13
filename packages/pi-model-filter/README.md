@@ -41,6 +41,19 @@ Example `~/.pi/agent/model-filters.json`:
 - `exclude` hides matching models and always wins over `include`.
 - Providers without `include` rules stay visible unless excluded.
 
+## How is this different from `/scoped-models`?
+
+Pi has a built-in `/scoped-models` command. It shows an interactive checklist that lets you enable or disable individual models for `Ctrl+P` cycling. Changes are session-only until you press `Ctrl+S` to persist them.
+
+`pi-model-filter` works differently:
+
+|                      | `/scoped-models`                     | `pi-model-filter`                                                     |
+| -------------------- | ------------------------------------ | --------------------------------------------------------------------- |
+| How you configure it | Interactive checklist                | JSON config file with glob patterns                                   |
+| What it affects      | `Ctrl+P` model cycling only          | `/model`, `Ctrl+L`, `Ctrl+P` cycling, and `modelRegistry.*()` lookups |
+| Persistence          | Optional (save with `Ctrl+S`)        | Always loaded from `~/.pi/agent/model-filters.json`                   |
+| Use case             | Quickly narrow the active cycle list | Permanently hide noisy/unwanted models everywhere                     |
+
 ## Behavior
 
 This extension filters models from Pi's model registry views, including:
