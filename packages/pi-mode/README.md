@@ -5,7 +5,7 @@ This Pi extension adds prompt modes for model and thinking-level switching.
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-mode
 ```
 
 ## Features

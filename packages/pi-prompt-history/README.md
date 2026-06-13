@@ -5,7 +5,7 @@ This Pi extension adds cross-session prompt history to the prompt editor.
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-prompt-history
 ```
 
 ## Features

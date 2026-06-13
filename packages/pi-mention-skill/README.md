@@ -5,7 +5,7 @@ This Pi extension moves skill selection out of the regular slash autocomplete me
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-mention-skill
 ```
 
 ## Features

@@ -7,7 +7,7 @@ Use it when a provider model identifier is hard to type or hard to scan in the m
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-model-alias
 ```
 
 ## Configuration

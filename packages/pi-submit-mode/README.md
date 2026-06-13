@@ -11,5 +11,5 @@ This package still applies the original submit behavior:
 ## Install
 
 ```sh
-pi install npm:@zigai/pi-keymap-tweaks
+pi install npm:@zigai/pi-submit-mode
 ```

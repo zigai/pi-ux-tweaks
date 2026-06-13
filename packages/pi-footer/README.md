@@ -17,5 +17,5 @@ The footer keeps key session information visible without taking much space:
 ## Install
 
 ```sh
-pi install git:github.com/zigai/pi-tweaks
+pi install npm:@zigai/pi-footer
 ```
