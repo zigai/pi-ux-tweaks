@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+import { atomicWriteUtf8, withFileLock } from "../src/storage.ts";
+
+async function exists(filePath: string): Promise<boolean> {
+    try {
+        await stat(filePath);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+void test("atomicWriteUtf8 creates parent directories and replaces existing content", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "pi-mode-storage-"));
+    try {
+        const filePath = path.join(dir, "nested", "modes.json");
+        await atomicWriteUtf8(filePath, "first");
+        await atomicWriteUtf8(filePath, "second");
+
+        assert.equal(await readFile(filePath, "utf8"), "second");
+    } finally {
+        await rm(dir, { recursive: true, force: true });
+    }
+});
+
+void test("withFileLock removes lock files when the callback throws", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "pi-mode-storage-"));
+    try {
+        const filePath = path.join(dir, "modes.json");
+        const lockPath = `${filePath}.lock`;
+
+        await assert.rejects(
+            withFileLock(filePath, async () => {
+                throw new Error("boom");
+            }),
+            /boom/,
+        );
+
+        assert.equal(await exists(lockPath), false);
+    } finally {
+        await rm(dir, { recursive: true, force: true });
+    }
+});
+
+void test("withFileLock removes stale locks before running the callback", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "pi-mode-storage-"));
+    try {
+        const filePath = path.join(dir, "modes.json");
+        const lockPath = `${filePath}.lock`;
+        await writeFile(lockPath, "stale", "utf8");
+        const oldDate = new Date(Date.now() - 60_000);
+        await utimes(lockPath, oldDate, oldDate);
+
+        const result = await withFileLock(filePath, async () => "locked");
+
+        assert.equal(result, "locked");
+        assert.equal(await exists(lockPath), false);
+    } finally {
+        await rm(dir, { recursive: true, force: true });
+    }
+});
