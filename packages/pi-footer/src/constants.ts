@@ -1,5 +1,3 @@
-export const WIDGET_KEY = "worked-for-widget";
-
 export const ACTIVE_FOOTER_VARIANT = "plain" as const;
 export const BRANCH_ICON = "";
 

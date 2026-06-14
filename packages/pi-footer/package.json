@@ -1,7 +1,7 @@
 {
   "name": "@zigai/pi-footer",
   "version": "0.1.6",
-  "description": "Pi package for a custom footer and worked-for token speed widget.",
+  "description": "Pi package for a custom compact footer.",
   "keywords": [
     "footer",
     "pi",

@@ -1,10 +1,14 @@
 # Pi Footer
 
+[![npm version](https://img.shields.io/npm/v/@zigai/pi-footer.svg?color=blue)](https://www.npmjs.com/package/@zigai/pi-footer)
+[![npm downloads](https://img.shields.io/npm/dm/@zigai/pi-footer.svg)](https://www.npmjs.com/package/@zigai/pi-footer)
+[![license](https://img.shields.io/npm/l/@zigai/pi-footer.svg)](../../LICENSE)
+
 This Pi extension replaces Pi's footer with a single compact plain-text status line.
 
 ![Pi Footer screenshot](assets/footer.png)
 
-The footer keeps key session information visible without taking much space:
+Footer contents:
 
 - current working directory
 - git branch
@@ -12,10 +16,13 @@ The footer keeps key session information visible without taking much space:
 - thinking level
 - MCP status
 - context usage
-- a short post-run summary with total agent time and output token speed
 
 ## Install
 
 ```sh
 pi install npm:@zigai/pi-footer
 ```
+
+## License
+
+MIT
