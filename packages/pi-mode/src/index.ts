@@ -7,6 +7,7 @@ import {
     handleSessionActivated,
     selectModeUI,
 } from "./mode-state.ts";
+import { setSettingsContext } from "./settings.ts";
 
 export default function (pi: ExtensionAPI) {
     pi.registerCommand("mode", {
@@ -31,6 +32,7 @@ export default function (pi: ExtensionAPI) {
     });
 
     pi.on("session_start", async (_event, ctx) => {
+        setSettingsContext(ctx);
         await handleSessionActivated(pi, ctx);
         applyModeEditor(pi, ctx);
     });

@@ -7,6 +7,8 @@ import {
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import fs from "node:fs/promises";
+import { Type, type Static, type TSchema } from "typebox";
+import { Value } from "typebox/value";
 import {
     ALL_THINKING_LEVELS,
     CUSTOM_MODE_NAME,
@@ -34,17 +36,51 @@ type ScopedModelItem = {
     thinkingLevel?: string;
 };
 
-type ModeSpecJson = {
-    provider?: string;
-    modelId?: string;
-    thinkingLevel?: ThinkingLevel;
-    color?: ModeSpec["color"];
-};
+const ModeSpecJsonSchema = Type.Object({
+    provider: Type.Optional(Type.String()),
+    modelId: Type.Optional(Type.String()),
+    thinkingLevel: Type.Optional(Type.Unknown()),
+    color: Type.Optional(Type.String()),
+});
 
-type ModesFileJson = {
-    currentMode?: string;
-    modes?: Record<string, ModeSpecJson>;
-};
+const ModesFileJsonSchema = Type.Object({
+    $schema: Type.Optional(Type.String()),
+    version: Type.Optional(Type.Number()),
+    currentMode: Type.Optional(Type.String()),
+    modes: Type.Optional(Type.Record(Type.String(), ModeSpecJsonSchema)),
+});
+
+type ModeSpecJson = Static<typeof ModeSpecJsonSchema>;
+type ModesFileJson = Static<typeof ModesFileJsonSchema>;
+
+function formatSchemaPath(instancePath: string): string {
+    if (instancePath.length === 0) return "root";
+    return instancePath
+        .slice(1)
+        .split("/")
+        .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"))
+        .join(".");
+}
+
+function parseSchema(schema: TSchema, value: unknown, label: string): unknown {
+    const errors = [...Value.Errors(schema, value)];
+    if (errors.length > 0) {
+        const messages = errors
+            .slice(0, 5)
+            .map((error) => `${formatSchemaPath(error.instancePath)} ${error.message}`);
+        let suffix = "";
+        if (errors.length > messages.length) {
+            suffix = `; and ${errors.length - messages.length} more`;
+        }
+        throw new Error(`${label} is invalid: ${messages.join("; ")}${suffix}`);
+    }
+    const parsed: unknown = Value.Parse(schema, value);
+    return parsed;
+}
+
+function parseModesFileJson(value: unknown): ModesFileJson {
+    return parseSchema(ModesFileJsonSchema, value, "modes.json") as ModesFileJson;
+}
 
 function cloneModesFile(file: ModesFile): ModesFile {
     return JSON.parse(JSON.stringify(file)) as ModesFile;
@@ -153,10 +189,10 @@ function applyModesPatch(target: ModesFile, patch: ModesPatch): void {
     }
 }
 
-function normalizeThinkingLevel(level: ThinkingLevel | undefined): ThinkingLevel | undefined {
-    if (level === undefined) return undefined;
-    if (ALL_THINKING_LEVELS.includes(level)) {
-        return level;
+function normalizeThinkingLevel(level: unknown): ThinkingLevel | undefined {
+    if (typeof level !== "string") return undefined;
+    if (ALL_THINKING_LEVELS.includes(level as ThinkingLevel)) {
+        return level as ThinkingLevel;
     }
     return undefined;
 }
@@ -185,7 +221,7 @@ function sanitizeModeSpec(spec: ModeSpecJson | undefined): ModeSpec {
     };
     if (spec.provider !== undefined) sanitized.provider = spec.provider;
     if (spec.modelId !== undefined) sanitized.modelId = spec.modelId;
-    if (spec.color !== undefined) sanitized.color = spec.color;
+    if (spec.color !== undefined) sanitized.color = spec.color as ModeSpec["color"];
     return sanitized;
 }
 
@@ -245,7 +281,7 @@ async function loadModesFile(
 ): Promise<ModesFile> {
     try {
         const raw = await fs.readFile(filePath, "utf8");
-        const parsed = JSON.parse(raw) as ModesFileJson;
+        const parsed = parseModesFileJson(JSON.parse(raw));
         const currentMode = parsed.currentMode ?? "default";
         const modesRaw = parsed.modes ?? {};
 

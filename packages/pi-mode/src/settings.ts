@@ -1,4 +1,8 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import {
+    getAgentDir,
+    SettingsManager,
+    type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import {
     closeSync,
     existsSync,
@@ -11,17 +15,57 @@ import {
     writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { Type, type TSchema } from "typebox";
+import { Value } from "typebox/value";
 
 export const SHOW_MODE_NAME_SETTINGS_KEY = "modeShowName";
 
 const SETTINGS_LOCK_TIMEOUT_MS = 5_000;
 const STALE_SETTINGS_LOCK_MS = 30_000;
+const SettingsObjectSchema = Type.Object({});
+const ShowModeNameSchema = Type.Boolean();
 
+type SettingsReadContext = {
+    cwd: string;
+    projectTrusted: boolean;
+};
+
+let settingsReadContext: SettingsReadContext | undefined;
 let cachedShowModeName: boolean | undefined;
-let cachedSettingsMtimeMs: number | null | undefined;
+let cachedSettingsMtimeKey: string | undefined;
+
+type ProjectTrustContext = ExtensionContext & {
+    isProjectTrusted?: () => boolean;
+};
+
+function isProjectTrusted(ctx: ExtensionContext): boolean {
+    return (ctx as ProjectTrustContext).isProjectTrusted?.() ?? true;
+}
+
+export function setSettingsContext(ctx: ExtensionContext): void {
+    const next: SettingsReadContext = {
+        cwd: ctx.cwd,
+        projectTrusted: isProjectTrusted(ctx),
+    };
+    if (
+        settingsReadContext?.cwd !== next.cwd ||
+        settingsReadContext.projectTrusted !== next.projectTrusted
+    ) {
+        settingsReadContext = next;
+        cachedShowModeName = undefined;
+        cachedSettingsMtimeKey = undefined;
+    }
+}
 
 function getSettingsPath(): string {
     return join(getAgentDir(), "settings.json");
+}
+
+function getProjectSettingsPath(): string | undefined {
+    if (settingsReadContext === undefined || !settingsReadContext.projectTrusted) {
+        return undefined;
+    }
+    return join(settingsReadContext.cwd, ".pi", "settings.json");
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -39,6 +83,14 @@ function throwError(error: unknown): never {
 function sleepSync(ms: number): void {
     const buffer = new SharedArrayBuffer(4);
     Atomics.wait(new Int32Array(buffer), 0, 0, ms);
+}
+
+function parseOptionalBoolean(schema: TSchema, value: unknown): boolean | undefined {
+    if (value === undefined) return undefined;
+    if (!Value.Check(schema, value)) return undefined;
+    const parsed: unknown = Value.Parse(schema, value);
+    if (typeof parsed === "boolean") return parsed;
+    return undefined;
 }
 
 function withSettingsLock<T>(settingsPath: string, fn: () => T): T {
@@ -128,26 +180,51 @@ function atomicWriteUtf8Sync(filePath: string, content: string): void {
     }
 }
 
-function getSettingsMtimeMs(): number | null {
+function getFileMtimeMs(filePath: string | undefined): number | null {
+    if (filePath === undefined) return null;
     try {
-        if (!existsSync(getSettingsPath())) return null;
-        return statSync(getSettingsPath()).mtimeMs;
+        if (!existsSync(filePath)) return null;
+        return statSync(filePath).mtimeMs;
     } catch {
         return null;
     }
+}
+
+function getSettingsMtimeKey(): string {
+    return `${getFileMtimeMs(getSettingsPath())}:${getFileMtimeMs(getProjectSettingsPath())}`;
+}
+
+function formatSchemaPath(instancePath: string): string {
+    if (instancePath.length === 0) return "root";
+    return instancePath
+        .slice(1)
+        .split("/")
+        .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"))
+        .join(".");
+}
+
+function parseSettingsObject(value: unknown, settingsPath: string): Record<string, unknown> {
+    const errors = [...Value.Errors(SettingsObjectSchema, value)];
+    if (errors.length > 0) {
+        const messages = errors
+            .slice(0, 5)
+            .map((error) => `${formatSchemaPath(error.instancePath)} ${error.message}`);
+        let suffix = "";
+        if (errors.length > messages.length) {
+            suffix = `; and ${errors.length - messages.length} more`;
+        }
+        throw new Error(
+            `${settingsPath} must contain a JSON object: ${messages.join("; ")}${suffix}`,
+        );
+    }
+    return { ...(Value.Parse(SettingsObjectSchema, value) as Record<string, unknown>) };
 }
 
 function readSettingsObject(options?: { throwOnInvalid?: boolean }): Record<string, unknown> {
     const settingsPath = getSettingsPath();
     try {
         const raw = readFileSync(settingsPath, "utf8");
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-            return { ...parsed };
-        }
-        if (options?.throwOnInvalid === true) {
-            throw new Error(`${settingsPath} must contain a JSON object.`);
-        }
+        return parseSettingsObject(JSON.parse(raw), settingsPath);
     } catch (error: unknown) {
         if (getErrorCode(error) === "ENOENT") return {};
         if (options?.throwOnInvalid === true) throwError(error);
@@ -166,15 +243,28 @@ function updateSettingsObject(update: (settings: Record<string, unknown>) => voi
     });
 }
 
+function applyShowModeNameSetting(settings: Record<string, unknown>, fallback: boolean): boolean {
+    return (
+        parseOptionalBoolean(ShowModeNameSchema, settings[SHOW_MODE_NAME_SETTINGS_KEY]) ?? fallback
+    );
+}
+
 export function shouldShowModeName(): boolean {
-    const mtimeMs = getSettingsMtimeMs();
-    if (cachedShowModeName !== undefined && cachedSettingsMtimeMs === mtimeMs) {
+    const mtimeKey = getSettingsMtimeKey();
+    if (cachedShowModeName !== undefined && cachedSettingsMtimeKey === mtimeKey) {
         return cachedShowModeName;
     }
 
-    const settings = readSettingsObject();
-    cachedSettingsMtimeMs = mtimeMs;
-    cachedShowModeName = settings[SHOW_MODE_NAME_SETTINGS_KEY] === true;
+    const context = settingsReadContext ?? { cwd: process.cwd(), projectTrusted: false };
+    const manager = SettingsManager.create(context.cwd, getAgentDir(), {
+        projectTrusted: context.projectTrusted,
+    });
+    let show = false;
+    show = applyShowModeNameSetting(manager.getGlobalSettings() as Record<string, unknown>, show);
+    show = applyShowModeNameSetting(manager.getProjectSettings() as Record<string, unknown>, show);
+
+    cachedSettingsMtimeKey = mtimeKey;
+    cachedShowModeName = show;
     return cachedShowModeName;
 }
 
@@ -183,6 +273,6 @@ export function setShowModeName(show: boolean): void {
         settings[SHOW_MODE_NAME_SETTINGS_KEY] = show;
     });
 
-    cachedSettingsMtimeMs = getSettingsMtimeMs();
+    cachedSettingsMtimeKey = getSettingsMtimeKey();
     cachedShowModeName = show;
 }
