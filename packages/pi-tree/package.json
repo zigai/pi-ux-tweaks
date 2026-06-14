@@ -1,7 +1,7 @@
 {
   "name": "@zigai/pi-tree",
   "version": "0.1.6",
-  "description": "Pi package that customizes session tree display with timestamps and preview behavior.",
+  "description": "Pi package that improves /tree with timestamps and preview behavior.",
   "keywords": [
     "pi",
     "pi-coding-agent",

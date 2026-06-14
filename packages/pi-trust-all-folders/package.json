@@ -1,7 +1,7 @@
 {
   "name": "@zigai/pi-trust-all-folders",
   "version": "0.1.1",
-  "description": "Pi extension that automatically trusts project-local inputs.",
+  "description": "Pi package that automatically trusts all project folders.",
   "keywords": [
     "pi",
     "pi-coding-agent",

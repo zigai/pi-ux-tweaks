@@ -1,7 +1,7 @@
 {
   "name": "@zigai/pi-model-alias",
   "version": "0.1.7",
-  "description": "Pi extension for configuring model aliases.",
+  "description": "Pi package that adds short aliases for provider model IDs.",
   "keywords": [
     "model-alias",
     "pi",
