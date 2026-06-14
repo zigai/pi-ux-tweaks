@@ -6,6 +6,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { Type, type Static, type TSchema } from "typebox";
+import { Value } from "typebox/value";
 
 const CONFIG_FILE = join(getAgentDir(), "model-filters.json");
 const PATCH_MARKER = "__providerModelFilterPatched";
@@ -78,59 +80,63 @@ function globToRegex(pattern: string): RegExp {
     return new RegExp(`^${regex}$`);
 }
 
-function validateRuleList(
-    parsed: Record<string, unknown>,
-    key: "include" | "exclude",
-): FilterRuleConfig[] {
-    const value = parsed[key];
-    if (value === undefined) {
-        return [];
-    }
+const NonBlankString = Type.String({ pattern: "\\S" });
 
-    if (!Array.isArray(value)) {
-        throw new Error(`"${key}" must be an array.`);
-    }
+const FilterRuleSchema = Type.Object({
+    provider: NonBlankString,
+    models: Type.Array(NonBlankString, { minItems: 1 }),
+});
 
-    return value.map((entry, index) => {
-        if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
-            throw new Error(`${key}[${index}] must be an object.`);
-        }
+const FilterConfigSchema = Type.Object({
+    $schema: Type.Optional(Type.String()),
+    include: Type.Optional(Type.Array(FilterRuleSchema)),
+    exclude: Type.Optional(Type.Array(FilterRuleSchema)),
+});
 
-        const candidate = entry as Record<string, unknown>;
-        let provider = "";
-        if (typeof candidate.provider === "string") {
-            provider = candidate.provider.trim();
-        }
-        if (provider.length === 0) {
-            throw new Error(`${key}[${index}].provider must be a non-empty string.`);
-        }
+type ParsedFilterRuleConfig = Static<typeof FilterRuleSchema>;
+type ParsedFilterConfig = Static<typeof FilterConfigSchema>;
 
-        if (!Array.isArray(candidate.models) || candidate.models.length === 0) {
-            throw new Error(`${key}[${index}].models must be a non-empty array of strings.`);
-        }
-
-        const models = candidate.models.map((model, modelIndex) => {
-            if (typeof model !== "string" || model.trim().length === 0) {
-                throw new Error(
-                    `${key}[${index}].models[${modelIndex}] must be a non-empty string.`,
-                );
-            }
-            return model.trim();
-        });
-
-        return { provider, models };
-    });
+function formatSchemaPath(instancePath: string): string {
+    if (instancePath.length === 0) return "root";
+    return instancePath
+        .slice(1)
+        .split("/")
+        .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"))
+        .join(".");
 }
 
-function validateConfig(config: unknown): FilterConfig {
-    if (config === null || typeof config !== "object" || Array.isArray(config)) {
-        throw new Error("Root value must be an object.");
+function parseSchema(schema: TSchema, value: unknown, label: string): unknown {
+    const errors = [...Value.Errors(schema, value)];
+    if (errors.length > 0) {
+        const messages = errors
+            .slice(0, 5)
+            .map((error) => `${formatSchemaPath(error.instancePath)} ${error.message}`);
+        let suffix = "";
+        if (errors.length > messages.length) {
+            suffix = `; and ${errors.length - messages.length} more`;
+        }
+        throw new Error(`${label} is invalid: ${messages.join("; ")}${suffix}`);
     }
+    const parsed: unknown = Value.Parse(schema, value);
+    return parsed;
+}
 
-    const parsed = config as Record<string, unknown>;
+function normalizeRule(rule: ParsedFilterRuleConfig): FilterRuleConfig {
     return {
-        include: validateRuleList(parsed, "include"),
-        exclude: validateRuleList(parsed, "exclude"),
+        provider: rule.provider.trim(),
+        models: rule.models.map((model) => model.trim()),
+    };
+}
+
+function parseFilterConfig(config: unknown): FilterConfig {
+    const parsed = parseSchema(
+        FilterConfigSchema,
+        config,
+        "model-filters.json",
+    ) as ParsedFilterConfig;
+    return {
+        include: (parsed.include ?? []).map(normalizeRule),
+        exclude: (parsed.exclude ?? []).map(normalizeRule),
     };
 }
 
@@ -200,7 +206,7 @@ function safeReadConfig(state: RuntimeState): LoadedConfig {
         }
 
         const raw = readFileSync(CONFIG_FILE, "utf8");
-        const parsed = validateConfig(JSON.parse(raw));
+        const parsed = parseFilterConfig(JSON.parse(raw));
         const loaded: LoadedConfig = {
             path: CONFIG_FILE,
             mtimeMs,
