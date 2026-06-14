@@ -16,29 +16,29 @@ const ORIGINAL_GET_ALL_KEY = "__providerModelFilterOriginalGetAll";
 const ORIGINAL_GET_AVAILABLE_KEY = "__providerModelFilterOriginalGetAvailable";
 const ORIGINAL_FIND_KEY = "__providerModelFilterOriginalFind";
 
-type ModelLike = {
+export type ModelLike = {
     provider: string;
     id: string;
 };
 
-type FilterRuleConfig = {
+export type FilterRuleConfig = {
     provider: string;
     models: string[];
 };
 
-type FilterConfig = {
+export type FilterConfig = {
     include?: FilterRuleConfig[];
     exclude?: FilterRuleConfig[];
 };
 
-type NormalizedRule = {
+export type NormalizedRule = {
     providerPattern: string;
     providerRegex: RegExp;
     modelPatterns: string[];
     modelRegexes: RegExp[];
 };
 
-type LoadedConfig = {
+export type LoadedConfig = {
     path: string;
     mtimeMs: number;
     includeRules: NormalizedRule[];
@@ -46,19 +46,19 @@ type LoadedConfig = {
     error?: string;
 };
 
-type RuntimeState = {
+export type RuntimeState = {
     configCache?: LoadedConfig;
     reportedErrorKey?: string;
     loadConfig: () => LoadedConfig;
 };
 
-type BasicModelRegistry = {
+export type BasicModelRegistry = {
     getAll(): ModelLike[];
     getAvailable(): ModelLike[];
     find(provider: string, modelId: string): ModelLike | undefined;
 };
 
-type PatchedModelRegistry = BasicModelRegistry & {
+export type PatchedModelRegistry = BasicModelRegistry & {
     [PATCH_MARKER]?: boolean;
     [RUNTIME_KEY]?: RuntimeState;
     [ORIGINAL_GET_ALL_KEY]?: () => ModelLike[];
@@ -66,7 +66,7 @@ type PatchedModelRegistry = BasicModelRegistry & {
     [ORIGINAL_FIND_KEY]?: (provider: string, modelId: string) => ModelLike | undefined;
 };
 
-function globToRegex(pattern: string): RegExp {
+export function globToRegex(pattern: string): RegExp {
     let regex = "";
     for (const character of pattern) {
         if (character === "*") {
@@ -140,7 +140,7 @@ function parseFilterConfig(config: unknown): FilterConfig {
     };
 }
 
-function normalizeRules(rules: FilterRuleConfig[]): NormalizedRule[] {
+export function normalizeRules(rules: FilterRuleConfig[]): NormalizedRule[] {
     return rules.map((rule) => ({
         providerPattern: rule.provider,
         providerRegex: globToRegex(rule.provider),
@@ -179,11 +179,11 @@ function isVisibleModel(model: ModelLike, loaded: LoadedConfig): boolean {
     return findMatchingRule(model, loaded.excludeRules) === undefined;
 }
 
-function filterModels(models: ModelLike[], loaded: LoadedConfig): ModelLike[] {
+export function filterModels(models: ModelLike[], loaded: LoadedConfig): ModelLike[] {
     return models.filter((model) => isVisibleModel(model, loaded));
 }
 
-function safeReadConfig(state: RuntimeState): LoadedConfig {
+export function safeReadConfig(state: RuntimeState): LoadedConfig {
     let mtimeMs = -1;
     try {
         try {
@@ -249,7 +249,7 @@ function reportConfigError(state: RuntimeState, ctx: ExtensionContext, loaded: L
     ctx.ui.notify(loaded.error, "error");
 }
 
-function installRegistryPatch(registry: PatchedModelRegistry, state: RuntimeState): void {
+export function installRegistryPatch(registry: PatchedModelRegistry, state: RuntimeState): void {
     registry[RUNTIME_KEY] = state;
 
     if (
